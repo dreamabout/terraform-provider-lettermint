@@ -1,0 +1,1 @@
+terraform import lettermint_domain_verification.example 0199aaaa-0000-7000-8000-000000000001

@@ -126,3 +126,43 @@ cd examples/provider && tofu plan
 Lettermint Team API: [OpenAPI 0.0.1](https://lettermint.co/docs/api-reference/team/0.0.1/lettermint-team-openapi.json).
 
 Repoet er offentligt: ingen tokens eller kundedata i tests og eksempler.
+
+## Dokumentation
+
+`docs/` genereres af [tfplugindocs](https://github.com/hashicorp/terraform-plugin-docs)
+ud fra skemaets beskrivelser og `examples/`. Ret dem dér, og kør:
+
+```bash
+go generate ./...
+```
+
+CI fejler, hvis `docs/` ikke svarer til koden.
+
+## Udgivelse
+
+Et tag `v*` udløser `.github/workflows/release.yml`: GoReleaser bygger en zip
+pr. OS og arkitektur, `SHA256SUMS`, en GPG-signatur af den og registrets
+manifest, og lægger dem på en GitHub-release. Terraform- og OpenTofu-registret
+henter nye versioner derfra.
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Engangsopsætning:
+
+1. **GPG-nøgle** (RSA). Den private nøgle og passphrasen som secrets
+   `GPG_PRIVATE_KEY` og `GPG_PASSPHRASE` i repoets miljø `release`.
+2. **Terraform-registret:** log ind med GitHub på registry.terraform.io, udgiv
+   provideren fra dette repo, og læg den offentlige nøgle på namespace
+   `dreamabout`.
+3. **OpenTofu-registret:** anmeld provideren og den offentlige nøgle via
+   issue-formularerne i [opentofu/registry](https://github.com/opentofu/registry/issues/new/choose).
+
+Prøv udgivelsen lokalt uden at signere:
+
+```bash
+goreleaser release --snapshot --clean --skip=sign
+```
+
