@@ -32,17 +32,20 @@ type domainResource struct {
 }
 
 type domainModel struct {
-	ID         types.String `tfsdk:"id"`
-	Domain     types.String `tfsdk:"domain"`
-	ProjectIDs types.Set    `tfsdk:"project_ids"`
-	Status     types.String `tfsdk:"status"`
-	DkimMode   types.String `tfsdk:"dkim_mode"`
-	DNSRecords types.List   `tfsdk:"dns_records"`
+	ID            types.String `tfsdk:"id"`
+	Domain        types.String `tfsdk:"domain"`
+	ProjectIDs    types.Set    `tfsdk:"project_ids"`
+	Status        types.String `tfsdk:"status"`
+	DkimMode      types.String `tfsdk:"dkim_mode"`
+	RotationReady types.Bool   `tfsdk:"rotation_ready"`
+	DNSRecords    types.List   `tfsdk:"dns_records"`
 }
 
 func (r *domainResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_domain"
 }
+
+const dkimModeDescription = "legacy_txt or managed_cname. The switch to managed_cname is made in Lettermint's dashboard; the Team API has no field for it. dns_records follows at the next refresh."
 
 const dnsRecordsDescription = "DNS records Lettermint needs for the domain, sorted by purpose and fqdn. Create them in the domain's DNS, then verify with lettermint_domain_verification."
 
@@ -75,9 +78,13 @@ func (r *domainResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Computed:    true,
 			},
 			"dkim_mode": schema.StringAttribute{
-				Description:   "legacy_txt or managed_cname.",
+				Description:   dkimModeDescription,
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"rotation_ready": schema.BoolAttribute{
+				Description: "Whether the domain can rotate its DKIM keys.",
+				Computed:    true,
 			},
 			"dns_records": schema.ListNestedAttribute{
 				Description:   dnsRecordsDescription,
@@ -90,6 +97,7 @@ func (r *domainResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 						"fqdn":                      schema.StringAttribute{Computed: true, Description: "Fully qualified name."},
 						"content":                   schema.StringAttribute{Computed: true, Description: "Record value."},
 						"purpose":                   schema.StringAttribute{Computed: true, Description: "return_path, dmarc, dkim_legacy, dkim_primary or dkim_secondary."},
+						"verification_scope":        schema.StringAttribute{Computed: true, Description: "required, recommended, migration or deprecated. During a switch to managed_cname the old records are deprecated."},
 						"required_for_verification": schema.BoolAttribute{Computed: true, Description: "Whether the domain verifies without it."},
 					},
 				},
@@ -236,11 +244,12 @@ func domainToModel(d *client.Domain) (*domainModel, diag.Diagnostics) {
 	projects, ds := projectIDsValue(d.Projects)
 	diags.Append(ds...)
 	return &domainModel{
-		ID:         types.StringValue(d.ID),
-		Domain:     types.StringValue(d.Domain),
-		ProjectIDs: projects,
-		Status:     types.StringValue(d.Status),
-		DkimMode:   types.StringValue(d.DkimMode),
-		DNSRecords: records,
+		ID:            types.StringValue(d.ID),
+		Domain:        types.StringValue(d.Domain),
+		ProjectIDs:    projects,
+		Status:        types.StringValue(d.Status),
+		DkimMode:      types.StringValue(d.DkimMode),
+		RotationReady: types.BoolValue(d.RotationReady),
+		DNSRecords:    records,
 	}, diags
 }

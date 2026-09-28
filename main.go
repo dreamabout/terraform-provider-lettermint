@@ -10,6 +10,8 @@ import (
 	"github.com/dreamabout/terraform-provider-lettermint/internal/provider"
 )
 
+//go:generate go tool tfplugindocs generate --provider-name lettermint
+
 // version is set by GoReleaser at build time.
 var version = "dev"
 

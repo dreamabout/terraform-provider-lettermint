@@ -32,6 +32,7 @@ Et token med `read:*` er nok til plan; apply kræver `write:*`.
 | `lettermint_domain_verification` | Venter, til Lettermint har verificeret domænets DNS-poster. Mister domænet sin verifikation, planlægges den igen |
 | `lettermint_route_inbound` | En eksisterende inbound-routes `inbound_domain`, `spam_threshold` og `attachment_delivery`. Opretter og sletter ikke routen; destroy nulstiller `inbound_domain`. Import på route-id |
 | `data.lettermint_domain` | Et domæne slået op på `id` eller `domain` |
+| `data.lettermint_domains` | Alle domæner i teamet, også underdomæner, fx til en `check`-blok, der fanger domæner, konfigurationen ikke styrer |
 | `data.lettermint_route` | En route, fx for `inbound_mx_hostname` |
 
 Et domæne med DNS i Cloudflare:
@@ -84,6 +85,11 @@ resource "lettermint_route_inbound" "support" {
 }
 ```
 
+`dkim_mode` er `legacy_txt` eller `managed_cname`. Skiftet sker i Lettermints
+dashboard; Team API'et har intet felt til det. Ved næste refresh følger
+`dns_records` med, og `verification_scope` (`required`, `recommended`,
+`migration` eller `deprecated`) skelner de gamle poster fra de nye.
+
 `verify` (standard `true`) venter, til Lettermint har set MX-posten.
 Verifikationen giver op efter 10 minutter; sæt `timeouts = { create = "20m" }`
 for at vente længere.
@@ -126,3 +132,43 @@ cd examples/provider && tofu plan
 Lettermint Team API: [OpenAPI 0.0.1](https://lettermint.co/docs/api-reference/team/0.0.1/lettermint-team-openapi.json).
 
 Repoet er offentligt: ingen tokens eller kundedata i tests og eksempler.
+
+## Dokumentation
+
+`docs/` genereres af [tfplugindocs](https://github.com/hashicorp/terraform-plugin-docs)
+ud fra skemaets beskrivelser og `examples/`. Ret dem dér, og kør:
+
+```bash
+go generate ./...
+```
+
+CI fejler, hvis `docs/` ikke svarer til koden.
+
+## Udgivelse
+
+Et tag `v*` udløser `.github/workflows/release.yml`: GoReleaser bygger en zip
+pr. OS og arkitektur, `SHA256SUMS`, en GPG-signatur af den og registrets
+manifest, og lægger dem på en GitHub-release. Terraform- og OpenTofu-registret
+henter nye versioner derfra.
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Engangsopsætning:
+
+1. **GPG-nøgle** (RSA). Den private nøgle og passphrasen som secrets
+   `GPG_PRIVATE_KEY` og `GPG_PASSPHRASE` i repoets miljø `release`.
+2. **Terraform-registret:** log ind med GitHub på registry.terraform.io, udgiv
+   provideren fra dette repo, og læg den offentlige nøgle på namespace
+   `dreamabout`.
+3. **OpenTofu-registret:** anmeld provideren og den offentlige nøgle via
+   issue-formularerne i [opentofu/registry](https://github.com/opentofu/registry/issues/new/choose).
+
+Prøv udgivelsen lokalt uden at signere:
+
+```bash
+goreleaser release --snapshot --clean --skip=sign
+```
+

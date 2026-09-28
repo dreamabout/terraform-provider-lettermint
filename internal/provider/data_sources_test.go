@@ -79,3 +79,37 @@ data "lettermint_route" "test" {
 		},
 	})
 }
+
+func TestDomainsDataSource(t *testing.T) {
+	f := newFakeLettermint(t)
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: f.providerConfig() + `
+resource "lettermint_domain" "apex" {
+  domain = "example.com"
+}
+
+resource "lettermint_domain" "news" {
+  domain = "news.example.com"
+}
+
+data "lettermint_domains" "all" {
+  depends_on = [lettermint_domain.apex, lettermint_domain.news]
+}`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.lettermint_domains.all", "domains.#", "2"),
+					// Sorted by name.
+					resource.TestCheckResourceAttr("data.lettermint_domains.all", "domains.0.domain", "example.com"),
+					resource.TestCheckResourceAttr("data.lettermint_domains.all", "domains.0.dkim_mode", "legacy_txt"),
+					resource.TestCheckResourceAttr("data.lettermint_domains.all", "domains.0.status", "pending_verification"),
+					resource.TestCheckResourceAttrPair("data.lettermint_domains.all", "domains.0.id", "lettermint_domain.apex", "id"),
+					resource.TestCheckResourceAttr("data.lettermint_domains.all", "domains.1.domain", "news.example.com"),
+					resource.TestCheckResourceAttr("data.lettermint_domains.all", "domains.1.dkim_mode", "managed_cname"),
+				),
+			},
+		},
+	})
+}
