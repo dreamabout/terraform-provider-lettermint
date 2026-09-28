@@ -1,0 +1,7 @@
+/terraform-provider-lettermint
+/dist/
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+.env
