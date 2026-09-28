@@ -24,6 +24,70 @@ provider "lettermint" {}
 
 Et token med `read:*` er nok til plan; apply kræver `write:*`.
 
+## Ressourcer og datakilder
+
+| Navn | Hvad |
+|---|---|
+| `lettermint_domain` | Et afsenderdomæne. `dns_records` er de poster, Lettermint kræver. Import på id eller domænenavn |
+| `lettermint_domain_verification` | Venter, til Lettermint har verificeret domænets DNS-poster. Mister domænet sin verifikation, planlægges den igen |
+| `lettermint_route_inbound` | En eksisterende inbound-routes `inbound_domain`, `spam_threshold` og `attachment_delivery`. Opretter og sletter ikke routen; destroy nulstiller `inbound_domain`. Import på route-id |
+| `data.lettermint_domain` | Et domæne slået op på `id` eller `domain` |
+| `data.lettermint_route` | En route, fx for `inbound_mx_hostname` |
+
+Et domæne med DNS i Cloudflare:
+
+```hcl
+resource "lettermint_domain" "shop" {
+  domain = "example.com"
+}
+
+resource "cloudflare_dns_record" "lettermint" {
+  for_each = { for r in lettermint_domain.shop.dns_records : "${r.type} ${r.fqdn}" => r }
+
+  zone_id = var.zone_id
+  name    = each.value.fqdn
+  type    = each.value.type
+  content = each.value.content
+  ttl     = 1
+}
+
+resource "lettermint_domain_verification" "shop" {
+  domain_id  = lettermint_domain.shop.id
+  depends_on = [cloudflare_dns_record.lettermint]
+}
+```
+
+`dns_records` kendes først, når domænet findes, så et nyt domæne kræver to
+applies (eller `-target=lettermint_domain.shop` først). Et importeret domæne
+kræver kun ét.
+
+Et inbound-domæne:
+
+```hcl
+data "lettermint_route" "inbound" {
+  id = var.route_id
+}
+
+resource "cloudflare_dns_record" "inbound_mx" {
+  zone_id  = var.zone_id
+  name     = "support.example.com"
+  type     = "MX"
+  content  = data.lettermint_route.inbound.inbound_mx_hostname
+  priority = 10
+  ttl      = 1
+}
+
+resource "lettermint_route_inbound" "support" {
+  route_id       = var.route_id
+  inbound_domain = "support.example.com"
+  depends_on     = [cloudflare_dns_record.inbound_mx]
+}
+```
+
+`verify` (standard `true`) venter, til Lettermint har set MX-posten.
+Verifikationen giver op efter 10 minutter; sæt `timeouts = { create = "20m" }`
+for at vente længere.
+
 ## Udvikling
 
 ```bash
@@ -32,9 +96,15 @@ golangci-lint run
 go test ./...
 ```
 
-Testene med `resource.UnitTest` kører Terraform-binæren (sæt
+Unit-testene kører provideren mod en fake Lettermint-server
+(`internal/provider/fake_test.go`). Testene med `resource.UnitTest` kører Terraform-binæren (sæt
 `TF_ACC_TERRAFORM_PATH`, hvis `terraform` ikke ligger på `PATH`). Mod
 OpenTofu fejler terraform-plugin-testing i dag på provider-adressen.
+
+Acceptance-testene (`TestAcc*`) kører mod et separat Lettermint-testteam og en
+Cloudflare-zone med `TF_ACC=1`. Se kommentaren øverst i
+`internal/provider/acc_test.go` for miljøvariablerne. I CI kører de i miljøet
+`acceptance`.
 
 Prøv en lokal build med `dev_overrides`:
 
