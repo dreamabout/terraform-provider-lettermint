@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -80,6 +81,15 @@ func optionalString(s *string) types.String {
 		return types.StringNull()
 	}
 	return types.StringValue(*s)
+}
+
+// keepCase returns prior when Lettermint returned the same name in another
+// case, so a normalized name does not show up as a change.
+func keepCase(prior types.String, fromAPI types.String) types.String {
+	if !prior.IsNull() && !prior.IsUnknown() && !fromAPI.IsNull() && strings.EqualFold(prior.ValueString(), fromAPI.ValueString()) {
+		return prior
+	}
+	return fromAPI
 }
 
 func optionalFloat(f *float64) types.Float64 {

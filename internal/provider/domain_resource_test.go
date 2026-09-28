@@ -144,3 +144,33 @@ resource "lettermint_domain" "test" {
 		},
 	})
 }
+
+// Lettermint stores names in lower case; the configured case must not show
+// up as a change.
+func TestNamesKeepConfiguredCase(t *testing.T) {
+	fastPolling(t)
+	f := newFakeLettermint(t)
+	f.addRoute("r1", "inbound")
+	cfg := f.providerConfig() + `
+resource "lettermint_domain" "test" {
+  domain = "Example.COM"
+}
+
+resource "lettermint_route_inbound" "test" {
+  route_id       = "r1"
+  inbound_domain = "Support.Example.com"
+}`
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: cfg,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("lettermint_domain.test", "domain", "Example.COM"),
+					resource.TestCheckResourceAttr("lettermint_route_inbound.test", "inbound_domain", "Support.Example.com"),
+				),
+			},
+			{Config: cfg, PlanOnly: true},
+		},
+	})
+}

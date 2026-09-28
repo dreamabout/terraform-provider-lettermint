@@ -270,7 +270,7 @@ func mxDetail(v *client.InboundVerification) string {
 func routeToModel(route *client.Route, m *routeInboundModel) {
 	m.ID = types.StringValue(route.ID)
 	m.RouteID = types.StringValue(route.ID)
-	m.InboundDomain = optionalString(route.InboundDomain)
+	m.InboundDomain = keepCase(m.InboundDomain, optionalString(route.InboundDomain))
 	m.SpamThreshold = optionalFloat(route.InboundSpamThreshold)
 	m.AttachmentDelivery = types.StringValue(route.AttachmentDelivery)
 	m.InboundMXHostname = types.StringValue(route.InboundMXHostname)

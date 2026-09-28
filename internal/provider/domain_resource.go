@@ -133,6 +133,7 @@ func (r *domainResource) Create(ctx context.Context, req resource.CreateRequest,
 	if !ok {
 		return
 	}
+	state.Domain = keepCase(plan.Domain, state.Domain)
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
@@ -169,6 +170,7 @@ func (r *domainResource) Read(ctx context.Context, req resource.ReadRequest, res
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	m.Domain = keepCase(state.Domain, m.Domain)
 	resp.Diagnostics.Append(resp.State.Set(ctx, m)...)
 }
 
@@ -196,6 +198,7 @@ func (r *domainResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 	// Planned from state; a change shows up at the next refresh instead of
 	// as an inconsistent result here.
+	fresh.Domain = plan.Domain
 	fresh.DkimMode = plan.DkimMode
 	fresh.DNSRecords = plan.DNSRecords
 	resp.Diagnostics.Append(resp.State.Set(ctx, fresh)...)

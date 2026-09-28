@@ -144,6 +144,7 @@ func (f *fakeLettermint) serve(w http.ResponseWriter, r *http.Request) {
 	case len(parts) == 1 && parts[0] == "domains" && r.Method == http.MethodPost:
 		var in struct{ Domain string }
 		_ = json.NewDecoder(r.Body).Decode(&in)
+		in.Domain = strings.ToLower(in.Domain)
 		for _, d := range f.domains {
 			if d.Name == in.Domain {
 				writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
@@ -224,6 +225,10 @@ func (f *fakeLettermint) serve(w http.ResponseWriter, r *http.Request) {
 			if raw, ok := in.InboundSettings["inbound_domain"]; ok {
 				var s *string
 				_ = json.Unmarshal(raw, &s)
+				if s != nil {
+					lower := strings.ToLower(*s)
+					s = &lower
+				}
 				if s == nil || rt.Domain == nil || *s != *rt.Domain {
 					rt.VerifiedAt = nil
 					rt.verifyCalls = 0
