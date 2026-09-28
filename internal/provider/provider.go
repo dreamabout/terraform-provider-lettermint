@@ -98,9 +98,16 @@ func resolveConfig(attrToken, attrBaseURL string) (token, baseURL string, err er
 }
 
 func (p *lettermintProvider) Resources(_ context.Context) []func() resource.Resource {
-	return nil
+	return []func() resource.Resource{
+		newDomainResource,
+		newDomainVerificationResource,
+		newRouteInboundResource,
+	}
 }
 
 func (p *lettermintProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return nil
+	return []func() datasource.DataSource{
+		newDomainDataSource,
+		newRouteDataSource,
+	}
 }

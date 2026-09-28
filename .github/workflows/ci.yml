@@ -33,3 +33,29 @@ jobs:
       - uses: golangci/golangci-lint-action@v9
         with:
           version: v2.14
+
+  # Against a separate Lettermint test team and a Cloudflare test zone. The
+  # secrets live in the acceptance environment and are not available to pull
+  # requests from forks.
+  acceptance:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: test
+    runs-on: ubuntu-latest
+    environment: acceptance
+    concurrency: acceptance
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
+      - run: go test -run '^TestAcc' -v -timeout 60m ./internal/provider/
+        env:
+          TF_ACC: "1"
+          LETTERMINT_TOKEN: ${{ secrets.LETTERMINT_TOKEN }}
+          LETTERMINT_ACC_ROUTE_ID: ${{ vars.LETTERMINT_ACC_ROUTE_ID }}
+          LETTERMINT_ACC_DOMAIN: ${{ vars.LETTERMINT_ACC_DOMAIN }}
+          LETTERMINT_ACC_ZONE_ID: ${{ vars.LETTERMINT_ACC_ZONE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
