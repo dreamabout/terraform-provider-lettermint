@@ -184,3 +184,43 @@ func TestCreateDomainAndSetProjects(t *testing.T) {
 		}
 	}
 }
+
+func TestListDomainsFollowsCursor(t *testing.T) {
+	var queries []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		queries = append(queries, r.URL.RawQuery)
+		if r.URL.Query().Get("page[cursor]") == "" {
+			_, _ = w.Write([]byte(`{"data":[{"id":"a","domain":"b.example.com","status":"verified","dkim_mode":"legacy_txt"}],"next_cursor":"c2"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":[{"id":"b","domain":"a.example.com","status":"pending_verification","dkim_mode":"managed_cname"}],"next_cursor":null}`))
+	}))
+	defer srv.Close()
+
+	got, err := New(srv.URL, "t", "").ListDomains(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].ID != "a" || got[1].DkimMode != "managed_cname" || got[1].Status != "pending_verification" {
+		t.Errorf("domains = %+v", got)
+	}
+	if len(queries) != 2 {
+		t.Errorf("queries = %v", queries)
+	}
+}
+
+func TestGetDomainReadsRotationReadyAndScope(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"id":"d1","domain":"example.com","status":"verified","dkim_mode":"managed_cname","rotation_ready":true,
+			"dns_records":[{"type":"TXT","fqdn":"lettermint._domainkey.example.com","purpose":"dkim_legacy","verification_scope":"deprecated"}]}`))
+	}))
+	defer srv.Close()
+
+	d, err := New(srv.URL, "t", "").GetDomain(context.Background(), "d1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.RotationReady || d.DNSRecords[0].VerificationScope != "deprecated" {
+		t.Errorf("domain = %+v", d)
+	}
+}

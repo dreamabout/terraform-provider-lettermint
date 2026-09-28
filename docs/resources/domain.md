@@ -42,9 +42,10 @@ resource "cloudflare_dns_record" "lettermint" {
 
 ### Read-Only
 
-- `dkim_mode` (String) legacy_txt or managed_cname.
+- `dkim_mode` (String) legacy_txt or managed_cname. The switch to managed_cname is made in Lettermint's dashboard; the Team API has no field for it. dns_records follows at the next refresh.
 - `dns_records` (Attributes List) DNS records Lettermint needs for the domain, sorted by purpose and fqdn. Create them in the domain's DNS, then verify with lettermint_domain_verification. (see [below for nested schema](#nestedatt--dns_records))
 - `id` (String) Domain id.
+- `rotation_ready` (Boolean) Whether the domain can rotate its DKIM keys.
 - `status` (String) verified, partially_verified, pending_verification or failed_verification.
 
 <a id="nestedatt--dns_records"></a>
@@ -58,6 +59,7 @@ Read-Only:
 - `purpose` (String) return_path, dmarc, dkim_legacy, dkim_primary or dkim_secondary.
 - `required_for_verification` (Boolean) Whether the domain verifies without it.
 - `type` (String) TXT, CNAME or MX.
+- `verification_scope` (String) required, recommended, migration or deprecated. During a switch to managed_cname the old records are deprecated.
 
 ## Import
 

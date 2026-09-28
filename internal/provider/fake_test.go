@@ -43,6 +43,14 @@ type fakeRoute struct {
 	verifyCalls   int
 }
 
+// Subdomains of news.* run managed_cname, as in production.
+func (d *fakeDomain) dkimMode() string {
+	if strings.HasPrefix(d.Name, "news.") {
+		return "managed_cname"
+	}
+	return "legacy_txt"
+}
+
 func newFakeLettermint(t *testing.T) *fakeLettermint {
 	f := &fakeLettermint{domains: map[string]*fakeDomain{}, routes: map[string]*fakeRoute{}}
 	f.Server = httptest.NewServer(http.HandlerFunc(f.serve))
@@ -75,10 +83,14 @@ func (f *fakeLettermint) route(id string) fakeRoute {
 
 func (f *fakeLettermint) records(d *fakeDomain) []map[string]any {
 	rec := func(id, typ, host, content, purpose string, required bool) map[string]any {
+		scope := "recommended"
+		if required {
+			scope = "required"
+		}
 		return map[string]any{
 			"id": d.ID + "-" + id, "type": typ, "hostname": host, "fqdn": host + "." + d.Name,
 			"content": content, "status": "pending", "purpose": purpose,
-			"verification_scope": "required", "required_for_verification": required,
+			"verification_scope": scope, "required_for_verification": required,
 			"verified_at": nil, "last_checked_at": nil,
 		}
 	}
@@ -95,7 +107,7 @@ func (f *fakeLettermint) domainJSON(d *fakeDomain) map[string]any {
 		projects = append(projects, map[string]any{"id": p, "name": "Project " + p[:4]})
 	}
 	return map[string]any{
-		"id": d.ID, "domain": d.Name, "dkim_mode": "legacy_txt", "rotation_ready": false,
+		"id": d.ID, "domain": d.Name, "dkim_mode": d.dkimMode(), "rotation_ready": false,
 		"status_changed_at": nil, "created_at": "2026-09-28T00:00:00Z",
 		"dns_records": f.records(d), "projects": projects,
 	}
@@ -136,7 +148,7 @@ func (f *fakeLettermint) serve(w http.ResponseWriter, r *http.Request) {
 		list := []map[string]any{}
 		for _, d := range f.domains {
 			if strings.Contains(d.Name, filter) {
-				list = append(list, map[string]any{"id": d.ID, "domain": d.Name, "status": d.Status, "dkim_mode": "legacy_txt"})
+				list = append(list, map[string]any{"id": d.ID, "domain": d.Name, "status": d.Status, "dkim_mode": d.dkimMode()})
 			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"data": list, "next_cursor": nil})

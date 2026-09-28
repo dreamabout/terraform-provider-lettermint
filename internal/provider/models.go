@@ -16,13 +16,16 @@ import (
 
 // dnsRecordAttrTypes are the attributes of one element of dns_records. Only
 // fields that describe the record are exposed, not its verification status,
-// so verifying a domain does not change the plan.
+// so verifying a domain does not change the plan. verification_scope is
+// required, recommended, migration or deprecated; during a DKIM switch it
+// tells old records from new.
 var dnsRecordAttrTypes = map[string]attr.Type{
 	"type":                      types.StringType,
 	"hostname":                  types.StringType,
 	"fqdn":                      types.StringType,
 	"content":                   types.StringType,
 	"purpose":                   types.StringType,
+	"verification_scope":        types.StringType,
 	"required_for_verification": types.BoolType,
 }
 
@@ -52,6 +55,7 @@ func dnsRecordsValue(records []client.DNSRecord) (types.List, diag.Diagnostics) 
 			"fqdn":                      types.StringValue(r.FQDN),
 			"content":                   types.StringValue(r.Content),
 			"purpose":                   types.StringValue(r.Purpose),
+			"verification_scope":        types.StringValue(r.VerificationScope),
 			"required_for_verification": types.BoolValue(r.RequiredForVerification),
 		})
 		diags.Append(d...)

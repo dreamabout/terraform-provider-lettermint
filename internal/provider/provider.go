@@ -108,6 +108,7 @@ func (p *lettermintProvider) Resources(_ context.Context) []func() resource.Reso
 func (p *lettermintProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		newDomainDataSource,
+		newDomainsDataSource,
 		newRouteDataSource,
 	}
 }

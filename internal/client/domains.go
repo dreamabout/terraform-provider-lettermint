@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -10,12 +11,15 @@ import (
 
 // Domain is a sending domain (DomainData).
 type Domain struct {
-	ID         string          `json:"id"`
-	Domain     string          `json:"domain"`
-	Status     string          `json:"status"`
-	DkimMode   string          `json:"dkim_mode"`
-	DNSRecords []DNSRecord     `json:"dns_records"`
-	Projects   []DomainProject `json:"projects"`
+	ID       string `json:"id"`
+	Domain   string `json:"domain"`
+	Status   string `json:"status"`
+	DkimMode string `json:"dkim_mode"`
+	// RotationReady is true when the domain can rotate its DKIM keys
+	// (managed_cname).
+	RotationReady bool            `json:"rotation_ready"`
+	DNSRecords    []DNSRecord     `json:"dns_records"`
+	Projects      []DomainProject `json:"projects"`
 }
 
 // DNSRecord is a record Lettermint needs in the domain's DNS
@@ -87,10 +91,34 @@ func (c *Client) GetDomain(ctx context.Context, id string) (*Domain, error) {
 // case), as listed (without DNS records). It returns a 404 APIError if there
 // is none.
 func (c *Client) FindDomainByName(ctx context.Context, name string) (*Domain, error) {
+	domains, err := c.listDomains(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	for i := range domains {
+		if strings.EqualFold(domains[i].Domain, name) {
+			return &domains[i], nil
+		}
+	}
+	return nil, &APIError{StatusCode: http.StatusNotFound, Message: "no domain named " + name}
+}
+
+// ListDomains returns every domain in the team, as listed (without DNS
+// records).
+func (c *Client) ListDomains(ctx context.Context) ([]Domain, error) {
+	return c.listDomains(ctx, "")
+}
+
+// listDomains follows the cursor through all pages. filter, when set, is
+// Lettermint's partial, case-insensitive match on the name.
+func (c *Client) listDomains(ctx context.Context, filter string) ([]Domain, error) {
+	var all []Domain
 	cursor := ""
 	for {
 		q := url.Values{}
-		q.Set("filter[domain]", name)
+		if filter != "" {
+			q.Set("filter[domain]", filter)
+		}
 		q.Set("page[size]", "100")
 		if cursor != "" {
 			q.Set("page[cursor]", cursor)
@@ -107,15 +135,11 @@ func (c *Client) FindDomainByName(ctx context.Context, name string) (*Domain, er
 			return nil, newAPIError(status, body)
 		}
 		if err := json.Unmarshal(body, &page); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("lettermint: decode GET /domains: %w", err)
 		}
-		for i := range page.Data {
-			if strings.EqualFold(page.Data[i].Domain, name) {
-				return &page.Data[i], nil
-			}
-		}
+		all = append(all, page.Data...)
 		if page.NextCursor == nil || *page.NextCursor == "" {
-			return nil, &APIError{StatusCode: http.StatusNotFound, Message: "no domain named " + name}
+			return all, nil
 		}
 		cursor = *page.NextCursor
 	}

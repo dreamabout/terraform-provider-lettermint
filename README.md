@@ -32,6 +32,7 @@ Et token med `read:*` er nok til plan; apply kræver `write:*`.
 | `lettermint_domain_verification` | Venter, til Lettermint har verificeret domænets DNS-poster. Mister domænet sin verifikation, planlægges den igen |
 | `lettermint_route_inbound` | En eksisterende inbound-routes `inbound_domain`, `spam_threshold` og `attachment_delivery`. Opretter og sletter ikke routen; destroy nulstiller `inbound_domain`. Import på route-id |
 | `data.lettermint_domain` | Et domæne slået op på `id` eller `domain` |
+| `data.lettermint_domains` | Alle domæner i teamet, også underdomæner, fx til en `check`-blok, der fanger domæner, konfigurationen ikke styrer |
 | `data.lettermint_route` | En route, fx for `inbound_mx_hostname` |
 
 Et domæne med DNS i Cloudflare:
@@ -83,6 +84,11 @@ resource "lettermint_route_inbound" "support" {
   depends_on     = [cloudflare_dns_record.inbound_mx]
 }
 ```
+
+`dkim_mode` er `legacy_txt` eller `managed_cname`. Skiftet sker i Lettermints
+dashboard; Team API'et har intet felt til det. Ved næste refresh følger
+`dns_records` med, og `verification_scope` (`required`, `recommended`,
+`migration` eller `deprecated`) skelner de gamle poster fra de nye.
 
 `verify` (standard `true`) venter, til Lettermint har set MX-posten.
 Verifikationen giver op efter 10 minutter; sæt `timeouts = { create = "20m" }`
