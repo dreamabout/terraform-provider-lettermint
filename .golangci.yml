@@ -1,0 +1,12 @@
+version: "2"
+linters:
+  enable:
+    - errorlint
+    - gocritic
+    - misspell
+    - unconvert
+    - usestdlibvars
+formatters:
+  enable:
+    - gofmt
+    - goimports
